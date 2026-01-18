@@ -141,9 +141,9 @@ main() {
     git submodule update --init --recursive
     
     # Build picoquic if needed
-    if [[ -f "scripts/build/build_picoquic.sh" ]]; then
+    if [[ -f "scripts/build_picoquic.sh" ]]; then
         print_status "Building picoquic dependencies..."
-        bash scripts/build/build_picoquic.sh
+        bash scripts/build_picoquic.sh
     fi
     
     # Set build mode
