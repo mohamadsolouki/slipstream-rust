@@ -20,6 +20,14 @@ CMAKE_ARGS=(
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 )
 
+# On Windows, add picoquic include dir for wincompat.h
+if [[ "${OSTYPE:-}" == "msys" ]] || [[ "${OSTYPE:-}" == "cygwin" ]] || [[ -n "${WINDIR:-}" ]]; then
+  PICOQUIC_INCLUDE="${PICOQUIC_DIR}/picoquic"
+  CMAKE_ARGS+=("-DCMAKE_C_FLAGS=/I\"${PICOQUIC_INCLUDE}\"")
+  CMAKE_ARGS+=("-DCMAKE_CXX_FLAGS=/I\"${PICOQUIC_INCLUDE}\"")
+  echo "Adding picoquic include path for Windows: ${PICOQUIC_INCLUDE}"
+fi
+
 # Pass OpenSSL paths if set
 if [[ -n "${OPENSSL_ROOT_DIR:-}" ]]; then
   CMAKE_ARGS+=(-DOPENSSL_ROOT_DIR="${OPENSSL_ROOT_DIR}")
