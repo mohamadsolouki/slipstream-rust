@@ -7,6 +7,12 @@ BUILD_DIR="${PICOQUIC_BUILD_DIR:-"${ROOT_DIR}/.picoquic-build"}"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 FETCH_PTLS="${PICOQUIC_FETCH_PTLS:-ON}"
 
+# Detect Windows
+IS_WINDOWS=false
+if [[ "${OSTYPE:-}" == "msys" ]] || [[ "${OSTYPE:-}" == "cygwin" ]] || [[ -n "${WINDIR:-}" ]]; then
+  IS_WINDOWS=true
+fi
+
 if [[ ! -d "${PICOQUIC_DIR}" ]]; then
   echo "picoquic not found at ${PICOQUIC_DIR}. Run: git submodule update --init --recursive" >&2
   exit 1
@@ -19,14 +25,6 @@ CMAKE_ARGS=(
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 )
-
-# On Windows, add picoquic include dir for wincompat.h
-if [[ "${OSTYPE:-}" == "msys" ]] || [[ "${OSTYPE:-}" == "cygwin" ]] || [[ -n "${WINDIR:-}" ]]; then
-  PICOQUIC_INCLUDE="${PICOQUIC_DIR}/picoquic"
-  CMAKE_ARGS+=("-DCMAKE_C_FLAGS=/I\"${PICOQUIC_INCLUDE}\"")
-  CMAKE_ARGS+=("-DCMAKE_CXX_FLAGS=/I\"${PICOQUIC_INCLUDE}\"")
-  echo "Adding picoquic include path for Windows: ${PICOQUIC_INCLUDE}"
-fi
 
 # Pass OpenSSL paths if set
 if [[ -n "${OPENSSL_ROOT_DIR:-}" ]]; then
@@ -45,4 +43,17 @@ if [[ -n "${OPENSSL_SSL_LIBRARY:-}" ]]; then
 fi
 
 cmake -S "${PICOQUIC_DIR}" -B "${BUILD_DIR}" "${CMAKE_ARGS[@]}"
+
+# On Windows, copy wincompat.h to picotls include directory after CMake configure
+if [[ "${IS_WINDOWS}" == "true" ]]; then
+  WINCOMPAT_SRC="${PICOQUIC_DIR}/picoquic/wincompat.h"
+  PICOTLS_INCLUDE="${BUILD_DIR}/_deps/picotls-src/include"
+  if [[ -f "${WINCOMPAT_SRC}" ]] && [[ -d "${PICOTLS_INCLUDE}" ]]; then
+    echo "Copying wincompat.h to picotls include directory..."
+    cp "${WINCOMPAT_SRC}" "${PICOTLS_INCLUDE}/"
+  else
+    echo "Warning: Could not copy wincompat.h - source: ${WINCOMPAT_SRC}, dest: ${PICOTLS_INCLUDE}"
+  fi
+fi
+
 cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}"
