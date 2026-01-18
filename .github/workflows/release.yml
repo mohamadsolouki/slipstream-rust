@@ -117,7 +117,18 @@ jobs:
           chmod +x scripts/build_picoquic.sh
           bash scripts/build_picoquic.sh
 
+      - name: Debug picoquic build
+        run: |
+          echo "=== Checking .picoquic-build ==="
+          ls -la .picoquic-build/ || echo "No .picoquic-build"
+          echo "=== Checking .picoquic-build/picoquic ==="
+          ls -la .picoquic-build/picoquic/ 2>/dev/null || echo "No .picoquic-build/picoquic"
+          echo "=== Looking for .a files ==="
+          find .picoquic-build -name "*.a" 2>/dev/null | head -20 || echo "No .a files found"
+
       - name: Build
+        env:
+          PICOQUIC_BUILD_DIR: ${{ github.workspace }}/.picoquic-build
         run: cargo build --release --target ${{ matrix.target }} -p slipstream-client -p slipstream-server
 
       - name: Package
