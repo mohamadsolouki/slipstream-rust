@@ -230,10 +230,35 @@ jobs:
       - name: Install dependencies
         run: |
           choco install openssl pkgconfiglite --no-progress -y
-          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >> $env:GITHUB_ENV
-          echo "OPENSSL_LIB_DIR=C:\Program Files\OpenSSL-Win64\lib\VC\x64\MT" >> $env:GITHUB_ENV
-          echo "OPENSSL_INCLUDE_DIR=C:\Program Files\OpenSSL-Win64\include" >> $env:GITHUB_ENV
-          echo "PKG_CONFIG_PATH=C:\Program Files\OpenSSL-Win64\lib\pkgconfig" >> $env:GITHUB_ENV
+          # Find the actual OpenSSL installation path and library locations
+          $opensslDir = "C:\Program Files\OpenSSL-Win64"
+          echo "OPENSSL_DIR=$opensslDir" >> $env:GITHUB_ENV
+          echo "OPENSSL_ROOT_DIR=$opensslDir" >> $env:GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=$opensslDir\include" >> $env:GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$opensslDir\lib\pkgconfig" >> $env:GITHUB_ENV
+          
+          # Find libcrypto.lib - check multiple possible locations
+          $cryptoLib = Get-ChildItem -Path "$opensslDir" -Recurse -Filter "libcrypto.lib" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($cryptoLib) {
+            $libDir = $cryptoLib.DirectoryName
+            echo "OPENSSL_LIB_DIR=$libDir" >> $env:GITHUB_ENV
+            echo "OPENSSL_CRYPTO_LIBRARY=$($cryptoLib.FullName)" >> $env:GITHUB_ENV
+            $sslLib = Join-Path $libDir "libssl.lib"
+            echo "OPENSSL_SSL_LIBRARY=$sslLib" >> $env:GITHUB_ENV
+            echo "Found OpenSSL libraries in: $libDir"
+          } else {
+            echo "Warning: libcrypto.lib not found, listing OpenSSL directory structure:"
+            Get-ChildItem -Path "$opensslDir" -Recurse -Name
+          }
+
+      - name: Verify OpenSSL paths
+        run: |
+          echo "OPENSSL_DIR: $env:OPENSSL_DIR"
+          echo "OPENSSL_LIB_DIR: $env:OPENSSL_LIB_DIR"
+          echo "OPENSSL_CRYPTO_LIBRARY: $env:OPENSSL_CRYPTO_LIBRARY"
+          echo "Checking if files exist:"
+          if (Test-Path $env:OPENSSL_CRYPTO_LIBRARY) { echo "libcrypto.lib exists" } else { echo "libcrypto.lib NOT FOUND" }
+          if (Test-Path $env:OPENSSL_SSL_LIBRARY) { echo "libssl.lib exists" } else { echo "libssl.lib NOT FOUND" }
 
       - name: Install CMake
         uses: lukka/get-cmake@latest
@@ -257,12 +282,24 @@ jobs:
 
       - name: Build picoquic
         shell: bash
-        env:
-          OPENSSL_ROOT_DIR: "C:/Program Files/OpenSSL-Win64"
-          OPENSSL_INCLUDE_DIR: "C:/Program Files/OpenSSL-Win64/include"
-          OPENSSL_CRYPTO_LIBRARY: "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MT/libcrypto.lib"
-          OPENSSL_SSL_LIBRARY: "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MT/libssl.lib"
         run: |
+          # Convert Windows paths to Unix-style for bash
+          OPENSSL_ROOT_DIR="${OPENSSL_DIR//\\//}"
+          OPENSSL_INCLUDE_DIR="${OPENSSL_INCLUDE_DIR//\\//}"
+          OPENSSL_CRYPTO_LIBRARY="${OPENSSL_CRYPTO_LIBRARY//\\//}"
+          OPENSSL_SSL_LIBRARY="${OPENSSL_SSL_LIBRARY//\\//}"
+          
+          export OPENSSL_ROOT_DIR
+          export OPENSSL_INCLUDE_DIR
+          export OPENSSL_CRYPTO_LIBRARY
+          export OPENSSL_SSL_LIBRARY
+          
+          echo "Using OpenSSL paths:"
+          echo "  ROOT: $OPENSSL_ROOT_DIR"
+          echo "  INCLUDE: $OPENSSL_INCLUDE_DIR"
+          echo "  CRYPTO: $OPENSSL_CRYPTO_LIBRARY"
+          echo "  SSL: $OPENSSL_SSL_LIBRARY"
+          
           chmod +x scripts/build_picoquic.sh
           bash scripts/build_picoquic.sh
 
