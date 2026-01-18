@@ -1,0 +1,222 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-unknown-linux-gnu
+            cross: false
+          - arch: arm64
+            target: aarch64-unknown-linux-gnu
+            cross: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config libssl-dev
+
+      - name: Install cross-compilation tools
+        if: matrix.cross
+        run: |
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }} -p slipstream-client -p slipstream-server
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/slipstream-client dist/
+          cp target/${{ matrix.target }}/release/slipstream-server dist/
+          cp README.md LICENSE dist/
+          cd dist && tar -czvf ../slipstream-linux-${{ matrix.arch }}.tar.gz *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-linux-${{ matrix.arch }}
+          path: slipstream-linux-${{ matrix.arch }}.tar.gz
+
+  build-macos:
+    name: Build macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-apple-darwin
+            runner: macos-13
+          - arch: arm64
+            target: aarch64-apple-darwin
+            runner: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install cmake pkg-config openssl@3
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> $GITHUB_ENV
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }} -p slipstream-client -p slipstream-server
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/slipstream-client dist/
+          cp target/${{ matrix.target }}/release/slipstream-server dist/
+          cp README.md LICENSE dist/
+          cd dist && tar -czvf ../slipstream-macos-${{ matrix.arch }}.tar.gz *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-macos-${{ matrix.arch }}
+          path: slipstream-macos-${{ matrix.arch }}.tar.gz
+
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+          vcpkg install openssl:x64-windows-static
+
+      - name: Set OpenSSL environment
+        run: |
+          echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" >> $env:GITHUB_ENV
+          echo "OPENSSL_STATIC=1" >> $env:GITHUB_ENV
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Apply Windows patches
+        shell: bash
+        run: |
+          chmod +x scripts/patches/apply_windows_socket_patch.sh
+          cd . && bash scripts/patches/apply_windows_socket_patch.sh
+
+      - name: Build
+        run: cargo build --release --target x86_64-pc-windows-msvc -p slipstream-client -p slipstream-server
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target\x86_64-pc-windows-msvc\release\slipstream-client.exe dist\
+          Copy-Item target\x86_64-pc-windows-msvc\release\slipstream-server.exe dist\
+          Copy-Item README.md, LICENSE dist\
+          Compress-Archive -Path dist\* -DestinationPath slipstream-windows-x64.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-windows-x64
+          path: slipstream-windows-x64.zip
+
+  release:
+    name: Create Release
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/slipstream-linux-x64/slipstream-linux-x64.tar.gz
+            artifacts/slipstream-linux-arm64/slipstream-linux-arm64.tar.gz
+            artifacts/slipstream-macos-x64/slipstream-macos-x64.tar.gz
+            artifacts/slipstream-macos-arm64/slipstream-macos-arm64.tar.gz
+            artifacts/slipstream-windows-x64/slipstream-windows-x64.zip
+          body: |
+            ## Slipstream ${{ steps.version.outputs.version }}
+            
+            ### Downloads
+            
+            | Platform | Architecture | Download |
+            |----------|--------------|----------|
+            | Linux | x64 | `slipstream-linux-x64.tar.gz` |
+            | Linux | ARM64 | `slipstream-linux-arm64.tar.gz` |
+            | macOS | x64 (Intel) | `slipstream-macos-x64.tar.gz` |
+            | macOS | ARM64 (Apple Silicon) | `slipstream-macos-arm64.tar.gz` |
+            | Windows | x64 | `slipstream-windows-x64.zip` |
+            
+            ### Installation
+            
+            **Linux/macOS:**
+            ```bash
+            tar -xzf slipstream-<platform>.tar.gz
+            sudo mv slipstream-client slipstream-server /usr/local/bin/
+            ```
+            
+            **Windows:**
+            Extract the zip and add the folder to your PATH.
+            
+            See the [README](https://github.com/${{ github.repository }}) for usage instructions.

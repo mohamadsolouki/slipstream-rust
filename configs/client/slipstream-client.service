@@ -1,0 +1,35 @@
+[Unit]
+Description=Slipstream DNS Tunnel Client
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=slipstream
+Group=slipstream
+
+# Configuration - Edit these values
+Environment="RUST_LOG=info"
+ExecStart=/usr/local/bin/slipstream-client \
+    --tcp-listen-port 7000 \
+    --resolver YOUR_SERVER_IP:53 \
+    --domain s.example.com
+
+# Uncomment to use certificate pinning (recommended)
+# ExecStart=/usr/local/bin/slipstream-client \
+#     --tcp-listen-port 7000 \
+#     --resolver YOUR_SERVER_IP:53 \
+#     --domain s.example.com \
+#     --cert /etc/slipstream/server-cert.pem
+
+Restart=always
+RestartSec=5
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

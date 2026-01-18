@@ -1,0 +1,38 @@
+# Slipstream Client Configuration Example
+# Copy this file and modify for your setup
+
+# Server connection settings
+[connection]
+# Your slipstream server's IP address or hostname
+resolver = "YOUR_SERVER_IP:53"
+
+# The domain configured on your server (must match server config)
+domain = "s.example.com"
+
+# Local port to listen on for SOCKS connections
+tcp_listen_port = 7000
+
+# Optional: Path to server certificate for pinning (recommended for security)
+# cert = "/path/to/server-cert.pem"
+
+# Performance settings
+[performance]
+# Keep-alive interval in milliseconds
+keep_alive_interval = 400
+
+# Congestion control algorithm: "bbr" or "dcubic"
+# congestion_control = "bbr"
+
+# Use authoritative mode (direct connection to authoritative DNS)
+# authoritative = false
+
+# Debug settings
+[debug]
+# Enable poll debugging
+debug_poll = false
+
+# Enable stream debugging  
+debug_streams = false
+
+# Log level: trace, debug, info, warn, error
+log_level = "info"

@@ -1,0 +1,28 @@
+# Slipstream Server Configuration Example
+# Copy this file and modify for your setup
+
+# DNS settings
+[dns]
+# Port to listen on for DNS queries (redirected from 53 via iptables)
+listen_port = 5300
+
+# Domain(s) to handle - can specify multiple
+domains = ["s.example.com"]
+
+# TLS certificates (required)
+[tls]
+cert = "/etc/slipstream/cert.pem"
+key = "/etc/slipstream/key.pem"
+
+# Target settings
+[target]
+# Where to forward tunneled traffic
+# For SOCKS mode: 127.0.0.1:1080 (Dante)
+# For SSH mode: 127.0.0.1:22
+address = "127.0.0.1:1080"
+
+# Debug settings
+[debug]
+debug_streams = false
+debug_commands = false
+log_level = "info"

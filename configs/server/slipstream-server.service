@@ -1,0 +1,37 @@
+[Unit]
+Description=Slipstream DNS Tunnel Server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=slipstream
+Group=slipstream
+
+# Configuration - Edit these values
+Environment="RUST_LOG=info"
+ExecStart=/usr/local/bin/slipstream-server \
+    --dns-listen-port 5300 \
+    --target-address 127.0.0.1:1080 \
+    --domain s.example.com \
+    --cert /etc/slipstream/cert.pem \
+    --key /etc/slipstream/key.pem
+
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=5
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/
+ReadWritePaths=/etc/slipstream
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

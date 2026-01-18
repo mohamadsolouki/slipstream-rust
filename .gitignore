@@ -1,0 +1,26 @@
+# Build artifacts
+/target/
+/build/
+/.picoquic-build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+*.jsonl
+
+# Temporary files
+*.tmp
+*.bak
+
+# Test outputs
+/.interop/
