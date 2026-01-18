@@ -44,15 +44,23 @@ fi
 
 cmake -S "${PICOQUIC_DIR}" -B "${BUILD_DIR}" "${CMAKE_ARGS[@]}"
 
-# On Windows, copy wincompat.h to picotls include directory after CMake configure
+# On Windows, copy our enhanced wincompat.h to picotls include directory after CMake configure
 if [[ "${IS_WINDOWS}" == "true" ]]; then
-  WINCOMPAT_SRC="${PICOQUIC_DIR}/picoquic/wincompat.h"
+  # Use our patched wincompat.h that includes ws2tcpip.h for IPv6 support
+  WINCOMPAT_SRC="${ROOT_DIR}/scripts/patches/wincompat.h"
   PICOTLS_INCLUDE="${BUILD_DIR}/_deps/picotls-src/include"
   if [[ -f "${WINCOMPAT_SRC}" ]] && [[ -d "${PICOTLS_INCLUDE}" ]]; then
-    echo "Copying wincompat.h to picotls include directory..."
+    echo "Copying enhanced wincompat.h to picotls include directory..."
     cp "${WINCOMPAT_SRC}" "${PICOTLS_INCLUDE}/"
   else
-    echo "Warning: Could not copy wincompat.h - source: ${WINCOMPAT_SRC}, dest: ${PICOTLS_INCLUDE}"
+    # Fall back to picoquic's wincompat.h
+    WINCOMPAT_FALLBACK="${PICOQUIC_DIR}/picoquic/wincompat.h"
+    if [[ -f "${WINCOMPAT_FALLBACK}" ]] && [[ -d "${PICOTLS_INCLUDE}" ]]; then
+      echo "Copying picoquic wincompat.h to picotls include directory..."
+      cp "${WINCOMPAT_FALLBACK}" "${PICOTLS_INCLUDE}/"
+    else
+      echo "Warning: Could not copy wincompat.h - source: ${WINCOMPAT_SRC}, dest: ${PICOTLS_INCLUDE}"
+    fi
   fi
 fi
 
