@@ -12,7 +12,183 @@ A complete DNS tunnel implementation in Rust with deployment automation for Linu
 - **Secure**: TLS encryption with optional certificate pinning
 - **Flexible**: SOCKS proxy or SSH tunnel modes
 
-## Repository Structure
+---
+
+## 🚀 Quick Start: Complete Deployment Guide
+
+This step-by-step guide will help you deploy a complete slipstream DNS tunnel.
+
+### Prerequisites
+
+Before you begin, you need:
+- A **VPS/server** with a public IP address (Ubuntu/Debian recommended)
+- A **domain name** you control
+- **Root/sudo access** on the server
+
+---
+
+### Step 1: Configure Your Domain's DNS Records
+
+Before installing the server, set up your DNS records:
+
+**Example Setup:**
+- Your domain: `example.com`
+- Your server IP: `203.0.113.2`
+- Tunnel subdomain: `s.example.com`
+
+**Add these DNS records at your domain registrar:**
+
+| Type | Name | Value/Points to | TTL |
+|------|------|-----------------|-----|
+| **A** | `ns.example.com` | `203.0.113.2` | 3600 |
+| **NS** | `s.example.com` | `ns.example.com` | 3600 |
+
+> ⚠️ **Important**: Wait 15-30 minutes for DNS propagation. You can verify with:
+> ```bash
+> dig NS s.example.com
+> ```
+
+---
+
+### Step 2: Deploy the Server (One-Command Install)
+
+SSH into your server and run:
+
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/mohamadsolouki/slipstream-rust/main/scripts/deploy/deploy-server.sh)
+```
+
+**The script will interactively ask you:**
+
+1. **Domain name** - Enter your tunnel domain (e.g., `s.example.com`)
+2. **Tunnel mode** - Choose `socks` (recommended) or `ssh`
+3. **Install Dante SOCKS proxy?** - Yes if you chose SOCKS mode
+
+**What the script does:**
+- ✅ Installs all build dependencies (Rust, CMake, OpenSSL, etc.)
+- ✅ Clones and builds slipstream-server from source
+- ✅ Generates TLS certificates
+- ✅ Configures iptables rules for DNS redirection
+- ✅ Sets up systemd service for auto-start
+- ✅ Optionally installs Dante SOCKS5 proxy
+
+---
+
+### Step 3: Verify Server Installation
+
+After installation completes, verify everything is running:
+
+```bash
+# Check slipstream-server status
+sudo systemctl status slipstream-server
+
+# Check if ports are listening
+sudo ss -tulnp | grep -E "(53|5300|1080)"
+
+# View server logs
+sudo journalctl -u slipstream-server -f
+```
+
+**Expected output:**
+- slipstream-server should be `active (running)`
+- Ports 53 (DNS) and 5300 (internal) should be listening
+- Port 1080 if SOCKS mode is enabled
+
+---
+
+### Step 4: Download and Set Up the Client
+
+Download the client for your operating system from [Releases](https://github.com/mohamadsolouki/slipstream-rust/releases):
+
+| Platform | Download |
+|----------|----------|
+| Windows x64 | `slipstream-windows-x64.zip` |
+| macOS Intel | `slipstream-macos-x64.tar.gz` |
+| macOS Apple Silicon | `slipstream-macos-arm64.tar.gz` |
+| Linux x64 | `slipstream-linux-x64.tar.gz` |
+
+**Extract the client:**
+
+```bash
+# Linux/macOS
+tar -xzf slipstream-*.tar.gz
+
+# Windows
+# Right-click the zip file and select "Extract All"
+```
+
+---
+
+### Step 5: Connect with the Client
+
+Run the client to connect to your server:
+
+```bash
+./slipstream-client \
+  --tcp-listen-port 7000 \
+  --resolver YOUR_SERVER_IP:53 \
+  --domain s.example.com
+```
+
+Replace:
+- `YOUR_SERVER_IP` with your server's public IP address
+- `s.example.com` with your tunnel domain
+
+**Windows:**
+```powershell
+.\slipstream-client.exe --tcp-listen-port 7000 --resolver YOUR_SERVER_IP:53 --domain s.example.com
+```
+
+---
+
+### Step 6: Configure Your Applications
+
+The client creates a local SOCKS5 proxy. Configure your applications to use:
+
+| Setting | Value |
+|---------|-------|
+| Proxy Type | SOCKS5 |
+| Host | `127.0.0.1` |
+| Port | `7000` |
+
+**Browser Configuration (Firefox):**
+1. Settings → Network Settings → Manual proxy configuration
+2. SOCKS Host: `127.0.0.1`, Port: `7000`
+3. Select "SOCKS v5"
+4. Check "Proxy DNS when using SOCKS v5"
+
+**System-wide (Linux):**
+```bash
+export ALL_PROXY=socks5://127.0.0.1:7000
+```
+
+---
+
+### Step 7: (Optional) Run Client as a Service
+
+**Linux (systemd):**
+```bash
+# Copy and edit the service file
+sudo cp configs/client/slipstream-client.service /etc/systemd/system/
+sudo nano /etc/systemd/system/slipstream-client.service
+# Update the ExecStart line with your settings
+
+sudo systemctl daemon-reload
+sudo systemctl enable slipstream-client
+sudo systemctl start slipstream-client
+```
+
+**Windows (using Task Scheduler):**
+1. Open Task Scheduler
+2. Create Basic Task → "Slipstream Client"
+3. Trigger: "When the computer starts"
+4. Action: Start a program
+5. Program: Path to `slipstream-client.exe`
+6. Arguments: `--tcp-listen-port 7000 --resolver YOUR_SERVER_IP:53 --domain s.example.com`
+
+---
+
+## 📁 Repository Structure
 
 ```
 slipstream-rust/
@@ -37,135 +213,7 @@ slipstream-rust/
 └── LICENSE
 ```
 
-## Quick Start
-
-### Server Setup (Linux)
-
-**One-command installation:**
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/mohamadsolouki/slipstream-rust/main/scripts/deploy/deploy-server.sh)
-```
-
-### Client Setup
-
-#### Pre-built Releases (Recommended)
-
-Download from [Releases](https://github.com/mohamadsolouki/slipstream-rust/releases):
-
-| Platform | Download |
-|----------|----------|
-| Windows x64 | `slipstream-windows-x64.zip` |
-| macOS x64 (Intel) | `slipstream-macos-x64.tar.gz` |
-| macOS ARM64 (Apple Silicon) | `slipstream-macos-arm64.tar.gz` |
-| Linux x64 | `slipstream-linux-x64.tar.gz` |
-| Linux ARM64 | `slipstream-linux-arm64.tar.gz` |
-
-#### Build from Source
-
-**Linux/macOS:**
-```bash
-bash scripts/build/build-client.sh
-```
-
-**Windows (PowerShell):**
-```powershell
-.\scripts\build\build-client.ps1
-```
-
-## DNS Domain Setup
-
-Before using slipstream, configure your domain's DNS records:
-
-### Example Configuration
-- **Your domain**: `example.com`
-- **Server IP**: `203.0.113.2`
-- **Tunnel subdomain**: `s.example.com`
-- **Server hostname**: `ns.example.com`
-
-### Required DNS Records
-
-| Type | Name | Points to |
-|------|------|-----------|
-| A | `ns.example.com` | `203.0.113.2` |
-| NS | `s.example.com` | `ns.example.com` |
-
-⚠️ **Wait for DNS propagation (up to 24 hours) before testing.**
-
-## Client Usage
-
-### Basic Usage
-
-```bash
-# Connect to your slipstream server
-slipstream-client \
-  --tcp-listen-port 7000 \
-  --resolver YOUR_SERVER_IP:53 \
-  --domain s.example.com
-```
-
-### With Certificate Pinning (Recommended)
-
-```bash
-slipstream-client \
-  --tcp-listen-port 7000 \
-  --resolver YOUR_SERVER_IP:53 \
-  --domain s.example.com \
-  --cert /path/to/server-cert.pem
-```
-
-### Using as SOCKS Proxy
-
-After starting the client, configure your applications to use:
-- **SOCKS5 Proxy**: `127.0.0.1:7000`
-
-### Running as a Service
-
-**Linux (systemd):**
-```bash
-sudo cp configs/client/client-systemd.service /etc/systemd/system/slipstream-client.service
-# Edit the service file with your configuration
-sudo systemctl daemon-reload
-sudo systemctl enable slipstream-client
-sudo systemctl start slipstream-client
-```
-
-**Windows (as a service):**
-```powershell
-# Using NSSM (Non-Sucking Service Manager)
-nssm install slipstream-client "C:\path\to\slipstream-client.exe"
-nssm set slipstream-client AppParameters "--tcp-listen-port 7000 --resolver SERVER_IP:53 --domain s.example.com"
-nssm start slipstream-client
-```
-
-## Server Deployment
-
-### Interactive Setup
-
-```bash
-bash scripts/server/deploy-server.sh
-```
-
-This will:
-1. Install all build dependencies
-2. Build slipstream-server from source
-3. Generate TLS certificates
-4. Configure firewall and iptables
-5. Set up systemd service
-6. Optionally configure Dante SOCKS proxy
-
-### Tunnel Modes
-
-**SOCKS Mode:**
-- Integrated Dante SOCKS5 proxy
-- Full internet proxy capabilities
-- Listens on `127.0.0.1:1080`
-
-**SSH Mode:**
-- Tunnels DNS traffic to SSH service
-- Automatically detects SSH port
-- Perfect for secure shell access
-
-## Configuration Options
+## 🔧 Advanced Configuration
 
 ### Client Options
 
@@ -177,7 +225,6 @@ This will:
 | `--cert` | Path to server certificate for pinning | None |
 | `--keep-alive-interval` | Keep-alive interval in ms | 400 |
 | `--congestion-control` | CC algorithm: `bbr` or `dcubic` | Auto |
-| `--authoritative` | Use authoritative mode | False |
 
 ### Server Options
 
@@ -189,29 +236,9 @@ This will:
 | `--cert` | Path to TLS certificate | Required |
 | `--key` | Path to TLS private key | Required |
 
-## Troubleshooting
+---
 
-See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues.
-
-### Quick Diagnostics
-
-**Check server status:**
-```bash
-sudo systemctl status slipstream-server
-sudo journalctl -u slipstream-server -f
-```
-
-**Test DNS resolution:**
-```bash
-dig @YOUR_SERVER_IP s.example.com
-```
-
-**Check ports:**
-```bash
-sudo ss -tulnp | grep -E "(5300|53|1080)"
-```
-
-## Building from Source
+## 🔨 Building from Source
 
 ### Prerequisites
 
@@ -229,23 +256,49 @@ git clone https://github.com/mohamadsolouki/slipstream-rust.git
 cd slipstream-rust
 git submodule update --init --recursive
 
+# Build picoquic dependencies
+bash scripts/build_picoquic.sh
+
 # Build both client and server
 cargo build --release -p slipstream-client -p slipstream-server
 
 # Binaries will be in target/release/
 ```
 
-## Documentation
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Server not starting:**
+```bash
+sudo journalctl -u slipstream-server -n 50 --no-pager
+```
+
+**DNS not resolving:**
+```bash
+dig @YOUR_SERVER_IP s.example.com
+```
+
+**Connection timeout:**
+- Verify firewall allows UDP port 53
+- Check if DNS records are propagated
+- Ensure server is running: `sudo systemctl status slipstream-server`
+
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more details.
+
+---
+
+## 📚 Documentation
 
 - [Client Setup Guide](docs/CLIENT_SETUP.md)
 - [Server Setup Guide](docs/SERVER_SETUP.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 
-## Contributing
+---
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Acknowledgments
+## 🙏 Acknowledgments
 
 This project builds upon excellent work by others:
 
@@ -255,6 +308,8 @@ This project builds upon excellent work by others:
 - [picoquic](https://github.com/private-octopus/picoquic) - QUIC protocol implementation
 - [dnstt](https://www.bamsoftware.com/software/dnstt/) by David Fifield - DNS tunnel inspiration
 
-## License
+---
+
+## 📄 License
 
 MIT License. See [LICENSE](LICENSE) for details.
