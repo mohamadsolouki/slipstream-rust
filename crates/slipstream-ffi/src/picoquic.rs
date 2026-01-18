@@ -1,7 +1,7 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 #[cfg(not(windows))]
-use libc::{c_char, c_int, c_uint, c_void, size_t, sockaddr, sockaddr_storage};
+use libc::{c_char, c_int, c_uint, c_void, size_t, sockaddr_storage};
 
 #[cfg(windows)]
 use libc::{c_char, c_int, c_uint, c_void, size_t};

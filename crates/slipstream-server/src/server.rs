@@ -5,7 +5,8 @@ use slipstream_dns::{
 use slipstream_ffi::picoquic::{
     picoquic_cnx_t, picoquic_create, picoquic_current_time, picoquic_incoming_packet_ex,
     picoquic_prepare_packet_ex, picoquic_quic_t, slipstream_disable_ack_delay,
-    slipstream_server_cc_algorithm, sockaddr, PICOQUIC_MAX_PACKET_SIZE, PICOQUIC_PACKET_LOOP_RECV_MAX,
+    slipstream_server_cc_algorithm, sockaddr, PICOQUIC_MAX_PACKET_SIZE,
+    PICOQUIC_PACKET_LOOP_RECV_MAX,
 };
 use slipstream_ffi::runtime::sockaddr_storage;
 use slipstream_ffi::{configure_quic_with_custom, socket_addr_to_storage, QuicGuard};
@@ -407,7 +408,14 @@ fn normalize_dual_stack_addr(addr: SocketAddr) -> SocketAddr {
 fn dummy_sockaddr_storage() -> sockaddr_storage {
     let mut storage: sockaddr_storage = unsafe { std::mem::zeroed() };
     let sockaddr = libc::sockaddr_in6 {
-        #[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd", target_os = "dragonfly"))]
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd",
+            target_os = "dragonfly"
+        ))]
         sin6_len: std::mem::size_of::<libc::sockaddr_in6>() as u8,
         sin6_family: libc::AF_INET6 as libc::sa_family_t,
         sin6_port: 12345u16.to_be(),

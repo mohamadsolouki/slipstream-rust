@@ -1,8 +1,8 @@
 use crate::error::ClientError;
 use slipstream_dns::decode_response;
 use slipstream_ffi::picoquic::{
-    picoquic_cnx_t, picoquic_current_time, picoquic_incoming_packet_ex, picoquic_quic_t,
-    sockaddr, PICOQUIC_PACKET_LOOP_RECV_MAX,
+    picoquic_cnx_t, picoquic_current_time, picoquic_incoming_packet_ex, picoquic_quic_t, sockaddr,
+    PICOQUIC_PACKET_LOOP_RECV_MAX,
 };
 use slipstream_ffi::runtime::sockaddr_storage;
 use slipstream_ffi::{socket_addr_to_storage, ResolverMode};

@@ -90,7 +90,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Handle OpenSSL library linking
     if let Some(openssl_lib_dir) = locate_openssl_lib_dir() {
-        println!("cargo:rustc-link-search=native={}", openssl_lib_dir.display());
+        println!(
+            "cargo:rustc-link-search=native={}",
+            openssl_lib_dir.display()
+        );
     }
 
     if is_windows {
@@ -334,7 +337,11 @@ fn locate_openssl_lib_dir() -> Option<PathBuf> {
             return Some(candidate);
         }
         // Windows may have lib\VC\x64\MT structure
-        let candidate = PathBuf::from(&dir).join("lib").join("VC").join("x64").join("MT");
+        let candidate = PathBuf::from(&dir)
+            .join("lib")
+            .join("VC")
+            .join("x64")
+            .join("MT");
         if candidate.exists() {
             return Some(candidate);
         }
@@ -418,28 +425,45 @@ fn resolve_picoquic_libs_split(
     picotls_dir: &Path,
     is_windows: bool,
 ) -> Option<Vec<&'static str>> {
-    let picoquic_core = find_lib_variant(picoquic_dir, "picoquic_core", "picoquic-core", is_windows)?;
+    let picoquic_core =
+        find_lib_variant(picoquic_dir, "picoquic_core", "picoquic-core", is_windows)?;
     let picotls_core = find_lib_variant(picotls_dir, "picotls_core", "picotls-core", is_windows)?;
-    let picotls_minicrypto =
-        find_lib_variant(picotls_dir, "picotls_minicrypto", "picotls-minicrypto", is_windows)?;
-    let picotls_openssl = find_lib_variant(picotls_dir, "picotls_openssl", "picotls-openssl", is_windows)?;
-    
+    let picotls_minicrypto = find_lib_variant(
+        picotls_dir,
+        "picotls_minicrypto",
+        "picotls-minicrypto",
+        is_windows,
+    )?;
+    let picotls_openssl = find_lib_variant(
+        picotls_dir,
+        "picotls_openssl",
+        "picotls-openssl",
+        is_windows,
+    )?;
+
     let mut libs = vec![
         picoquic_core,
         picotls_core,
         picotls_minicrypto,
         picotls_openssl,
     ];
-    
+
     // picotls_fusion is optional - only available on x86_64 Linux with VAES support
-    if let Some(picotls_fusion) = find_lib_variant(picotls_dir, "picotls_fusion", "picotls-fusion", is_windows) {
+    if let Some(picotls_fusion) =
+        find_lib_variant(picotls_dir, "picotls_fusion", "picotls-fusion", is_windows)
+    {
         libs.push(picotls_fusion);
     }
-    
+
     Some(libs)
 }
 
-fn find_lib_variant<'a>(dir: &Path, underscored: &'a str, hyphenated: &'a str, is_windows: bool) -> Option<&'a str> {
+fn find_lib_variant<'a>(
+    dir: &Path,
+    underscored: &'a str,
+    hyphenated: &'a str,
+    is_windows: bool,
+) -> Option<&'a str> {
     if is_windows {
         // Windows uses .lib extension
         let underscored_path = dir.join(format!("{}.lib", underscored));
