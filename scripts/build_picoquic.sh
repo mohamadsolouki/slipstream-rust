@@ -29,6 +29,9 @@ CMAKE_ARGS=(
   -DBUILD_HTTP=OFF
   -DBUILD_LOGLIB=OFF
   -DBUILD_LOGREADER=OFF
+  -DBUILD_TESTING=OFF
+  # Skip building picotls tests by setting this before FetchContent
+  -DFETCHCONTENT_QUIET=OFF
 )
 
 # Pass OpenSSL paths if set
@@ -69,4 +72,13 @@ if [[ "${IS_WINDOWS}" == "true" ]]; then
   fi
 fi
 
-cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}"
+# Build only the specific targets we need, avoiding test executables
+if [[ "${IS_WINDOWS}" == "true" ]]; then
+  echo "Building specific targets for Windows..."
+  cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" --target picoquic-core
+  cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" --target picotls-core
+  cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" --target picotls-openssl || true
+  cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" --target picotls-minicrypto || true
+else
+  cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}"
+fi
