@@ -7,10 +7,31 @@ use crate::picoquic::{
     picoquic_set_max_data_control, picoquic_set_mtu_max, picoquic_set_preemptive_repeat_policy,
     picoquic_set_stream_data_consumption_mode,
 };
-use libc::{c_char, sockaddr_storage};
+use libc::c_char;
 use slipstream_core::tcp::stream_write_buffer_bytes;
 use std::io::Write;
 use std::net::{Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, SocketAddrV4, SocketAddrV6, TcpStream};
+
+// Cross-platform socket address storage
+#[cfg(not(windows))]
+pub use libc::sockaddr_storage;
+
+#[cfg(windows)]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct sockaddr_storage {
+    pub ss_family: u16,
+    __ss_pad1: [u8; 6],
+    __ss_align: i64,
+    __ss_pad2: [u8; 112],
+}
+
+#[cfg(windows)]
+impl Default for sockaddr_storage {
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
+    }
+}
 
 pub const SLIPSTREAM_INTERNAL_ERROR: u64 = 0x101;
 pub const SLIPSTREAM_FILE_CANCEL_ERROR: u64 = 0x105;
@@ -73,6 +94,13 @@ unsafe fn configure_quic_common(quic: *mut picoquic_quic_t, mtu: u32) {
     picoquic_set_key_log_file_from_env(quic);
 }
 
+// Windows AF_* constants
+#[cfg(windows)]
+const AF_INET: i32 = 2;
+#[cfg(windows)]
+const AF_INET6: i32 = 23;
+
+#[cfg(not(windows))]
 pub fn socket_addr_to_storage(addr: SocketAddr) -> sockaddr_storage {
     match addr {
         SocketAddr::V4(addr) => {
@@ -117,6 +145,57 @@ pub fn socket_addr_to_storage(addr: SocketAddr) -> sockaddr_storage {
     }
 }
 
+#[cfg(windows)]
+pub fn socket_addr_to_storage(addr: SocketAddr) -> sockaddr_storage {
+    #[repr(C)]
+    struct sockaddr_in {
+        sin_family: u16,
+        sin_port: u16,
+        sin_addr: [u8; 4],
+        sin_zero: [u8; 8],
+    }
+
+    #[repr(C)]
+    struct sockaddr_in6 {
+        sin6_family: u16,
+        sin6_port: u16,
+        sin6_flowinfo: u32,
+        sin6_addr: [u8; 16],
+        sin6_scope_id: u32,
+    }
+
+    match addr {
+        SocketAddr::V4(addr) => {
+            let mut storage: sockaddr_storage = unsafe { std::mem::zeroed() };
+            let sockaddr = sockaddr_in {
+                sin_family: AF_INET as u16,
+                sin_port: addr.port().to_be(),
+                sin_addr: addr.ip().octets(),
+                sin_zero: [0; 8],
+            };
+            unsafe {
+                std::ptr::write(&mut storage as *mut _ as *mut sockaddr_in, sockaddr);
+            }
+            storage
+        }
+        SocketAddr::V6(addr) => {
+            let mut storage: sockaddr_storage = unsafe { std::mem::zeroed() };
+            let sockaddr = sockaddr_in6 {
+                sin6_family: AF_INET6 as u16,
+                sin6_port: addr.port().to_be(),
+                sin6_flowinfo: addr.flowinfo(),
+                sin6_addr: addr.ip().octets(),
+                sin6_scope_id: addr.scope_id(),
+            };
+            unsafe {
+                std::ptr::write(&mut storage as *mut _ as *mut sockaddr_in6, sockaddr);
+            }
+            storage
+        }
+    }
+}
+
+#[cfg(not(windows))]
 pub fn sockaddr_storage_to_socket_addr(storage: &sockaddr_storage) -> Result<SocketAddr, String> {
     match storage.ss_family as libc::c_int {
         libc::AF_INET => {
@@ -132,6 +211,49 @@ pub fn sockaddr_storage_to_socket_addr(storage: &sockaddr_storage) -> Result<Soc
             let addr_in6: &libc::sockaddr_in6 =
                 unsafe { &*(storage as *const _ as *const libc::sockaddr_in6) };
             let ip = Ipv6Addr::from(addr_in6.sin6_addr.s6_addr);
+            let port = u16::from_be(addr_in6.sin6_port);
+            Ok(SocketAddr::V6(SocketAddrV6::new(
+                ip,
+                port,
+                addr_in6.sin6_flowinfo,
+                addr_in6.sin6_scope_id,
+            )))
+        }
+        _ => Err("Unsupported sockaddr family".to_string()),
+    }
+}
+
+#[cfg(windows)]
+pub fn sockaddr_storage_to_socket_addr(storage: &sockaddr_storage) -> Result<SocketAddr, String> {
+    #[repr(C)]
+    struct sockaddr_in {
+        sin_family: u16,
+        sin_port: u16,
+        sin_addr: [u8; 4],
+        sin_zero: [u8; 8],
+    }
+
+    #[repr(C)]
+    struct sockaddr_in6 {
+        sin6_family: u16,
+        sin6_port: u16,
+        sin6_flowinfo: u32,
+        sin6_addr: [u8; 16],
+        sin6_scope_id: u32,
+    }
+
+    match storage.ss_family as i32 {
+        AF_INET => {
+            let addr_in: &sockaddr_in =
+                unsafe { &*(storage as *const _ as *const sockaddr_in) };
+            let ip = Ipv4Addr::from(addr_in.sin_addr);
+            let port = u16::from_be(addr_in.sin_port);
+            Ok(SocketAddr::V4(SocketAddrV4::new(ip, port)))
+        }
+        AF_INET6 => {
+            let addr_in6: &sockaddr_in6 =
+                unsafe { &*(storage as *const _ as *const sockaddr_in6) };
+            let ip = Ipv6Addr::from(addr_in6.sin6_addr);
             let port = u16::from_be(addr_in6.sin6_port);
             Ok(SocketAddr::V6(SocketAddrV6::new(
                 ip,

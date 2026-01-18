@@ -10,3 +10,6 @@ readme = "../../README.md"
 [dependencies]
 libc = "0.2"
 slipstream-core = { path = "../slipstream-core" }
+
+[build-dependencies]
+cc = "1.2"

@@ -12,9 +12,18 @@ if [[ ! -d "${PICOQUIC_DIR}" ]]; then
   exit 1
 fi
 
-cmake -S "${PICOQUIC_DIR}" -B "${BUILD_DIR}" \
-  -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
-  -DPICOQUIC_FETCH_PTLS="${FETCH_PTLS}" \
-  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+# Build cmake args
+CMAKE_ARGS=(
+  -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
+  -DPICOQUIC_FETCH_PTLS="${FETCH_PTLS}"
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-cmake --build "${BUILD_DIR}"
+)
+
+# Pass OpenSSL paths if set
+if [[ -n "${OPENSSL_ROOT_DIR:-}" ]]; then
+  CMAKE_ARGS+=(-DOPENSSL_ROOT_DIR="${OPENSSL_ROOT_DIR}")
+fi
+
+cmake -S "${PICOQUIC_DIR}" -B "${BUILD_DIR}" "${CMAKE_ARGS[@]}"
+cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}"

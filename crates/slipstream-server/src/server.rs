@@ -5,8 +5,9 @@ use slipstream_dns::{
 use slipstream_ffi::picoquic::{
     picoquic_cnx_t, picoquic_create, picoquic_current_time, picoquic_incoming_packet_ex,
     picoquic_prepare_packet_ex, picoquic_quic_t, slipstream_disable_ack_delay,
-    slipstream_server_cc_algorithm, PICOQUIC_MAX_PACKET_SIZE, PICOQUIC_PACKET_LOOP_RECV_MAX,
+    slipstream_server_cc_algorithm, sockaddr, PICOQUIC_MAX_PACKET_SIZE, PICOQUIC_PACKET_LOOP_RECV_MAX,
 };
+use slipstream_ffi::runtime::sockaddr_storage;
 use slipstream_ffi::{configure_quic_with_custom, socket_addr_to_storage, QuicGuard};
 use std::ffi::CString;
 use std::fmt;
@@ -35,6 +36,7 @@ pub(crate) const TARGET_WRITE_COALESCE_DEFAULT_BYTES: usize = 256 * 1024;
 
 static SHOULD_SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
+#[cfg(not(windows))]
 extern "C" fn handle_sigterm(_signum: libc::c_int) {
     SHOULD_SHUTDOWN.store(true, Ordering::Relaxed);
 }
@@ -191,6 +193,7 @@ pub async fn run_server(config: &ServerConfig) -> Result<i32, ServerError> {
         return Err(ServerError::new("At least one domain must be configured"));
     }
 
+    #[cfg(not(windows))]
     unsafe {
         libc::signal(libc::SIGTERM, handle_sigterm as usize);
     }
@@ -263,8 +266,8 @@ pub async fn run_server(config: &ServerConfig) -> Result<i32, ServerError> {
 
         for slot in slots.iter_mut() {
             let mut send_length = 0usize;
-            let mut addr_to: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
-            let mut addr_from: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
+            let mut addr_to: sockaddr_storage = unsafe { std::mem::zeroed() };
+            let mut addr_from: sockaddr_storage = unsafe { std::mem::zeroed() };
             let mut if_index: libc::c_int = 0;
 
             if slot.rcode.is_none() && !slot.cnx.is_null() {
@@ -318,7 +321,7 @@ fn decode_slot(
     domains: &[&str],
     quic: *mut picoquic_quic_t,
     current_time: u64,
-    local_addr_storage: &libc::sockaddr_storage,
+    local_addr_storage: &sockaddr_storage,
 ) -> Result<Option<Slot>, ServerError> {
     match decode_query_with_domains(packet, domains) {
         Ok(query) => {
@@ -331,8 +334,8 @@ fn decode_slot(
                     quic,
                     query.payload.as_ptr() as *mut u8,
                     query.payload.len(),
-                    &mut peer_storage as *mut _ as *mut libc::sockaddr,
-                    &mut local_storage as *mut _ as *mut libc::sockaddr,
+                    &mut peer_storage as *mut _ as *mut sockaddr,
+                    &mut local_storage as *mut _ as *mut sockaddr,
                     0,
                     0,
                     &mut first_cnx,
@@ -400,8 +403,9 @@ fn normalize_dual_stack_addr(addr: SocketAddr) -> SocketAddr {
     }
 }
 
-fn dummy_sockaddr_storage() -> libc::sockaddr_storage {
-    let mut storage: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
+#[cfg(not(windows))]
+fn dummy_sockaddr_storage() -> sockaddr_storage {
+    let mut storage: sockaddr_storage = unsafe { std::mem::zeroed() };
     let sockaddr = libc::sockaddr_in6 {
         #[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd", target_os = "dragonfly"))]
         sin6_len: std::mem::size_of::<libc::sockaddr_in6>() as u8,
@@ -415,6 +419,32 @@ fn dummy_sockaddr_storage() -> libc::sockaddr_storage {
     };
     unsafe {
         std::ptr::write(&mut storage as *mut _ as *mut libc::sockaddr_in6, sockaddr);
+    }
+    storage
+}
+
+#[cfg(windows)]
+fn dummy_sockaddr_storage() -> sockaddr_storage {
+    #[repr(C)]
+    struct sockaddr_in6 {
+        sin6_family: u16,
+        sin6_port: u16,
+        sin6_flowinfo: u32,
+        sin6_addr: [u8; 16],
+        sin6_scope_id: u32,
+    }
+
+    const AF_INET6: u16 = 23;
+    let mut storage: sockaddr_storage = unsafe { std::mem::zeroed() };
+    let sockaddr = sockaddr_in6 {
+        sin6_family: AF_INET6,
+        sin6_port: 12345u16.to_be(),
+        sin6_flowinfo: 0,
+        sin6_addr: Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1).octets(),
+        sin6_scope_id: 0,
+    };
+    unsafe {
+        std::ptr::write(&mut storage as *mut _ as *mut sockaddr_in6, sockaddr);
     }
     storage
 }

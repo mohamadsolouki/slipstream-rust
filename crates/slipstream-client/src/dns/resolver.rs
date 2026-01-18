@@ -1,6 +1,7 @@
 use crate::error::ClientError;
 use crate::pacing::{PacingBudgetSnapshot, PacingPollBudget};
 use slipstream_core::resolve_host_port;
+use slipstream_ffi::runtime::sockaddr_storage;
 use slipstream_ffi::{socket_addr_to_storage, ResolverMode, ResolverSpec};
 use std::collections::HashMap;
 use std::net::{SocketAddr, SocketAddrV6};
@@ -10,8 +11,8 @@ use super::debug::DebugMetrics;
 
 pub(crate) struct ResolverState {
     pub(crate) addr: SocketAddr,
-    pub(crate) storage: libc::sockaddr_storage,
-    pub(crate) local_addr_storage: Option<libc::sockaddr_storage>,
+    pub(crate) storage: sockaddr_storage,
+    pub(crate) local_addr_storage: Option<sockaddr_storage>,
     pub(crate) mode: ResolverMode,
     pub(crate) added: bool,
     pub(crate) path_id: libc::c_int,
@@ -102,7 +103,7 @@ pub(crate) fn normalize_dual_stack_addr(addr: SocketAddr) -> SocketAddr {
 }
 
 pub(crate) fn sockaddr_storage_to_socket_addr(
-    storage: &libc::sockaddr_storage,
+    storage: &sockaddr_storage,
 ) -> Result<SocketAddr, ClientError> {
     slipstream_ffi::sockaddr_storage_to_socket_addr(storage).map_err(ClientError::new)
 }

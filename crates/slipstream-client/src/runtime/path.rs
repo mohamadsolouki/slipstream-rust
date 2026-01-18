@@ -9,6 +9,7 @@ use slipstream_ffi::picoquic::{
     picoquic_get_path_quality, slipstream_get_path_id_from_unique, slipstream_set_path_ack_delay,
     slipstream_set_path_mode, PICOQUIC_PACKET_LOOP_SEND_MAX,
 };
+use slipstream_ffi::runtime::sockaddr_storage;
 use slipstream_ffi::ResolverMode;
 use std::net::SocketAddr;
 
@@ -85,7 +86,7 @@ pub(crate) fn drain_path_events(
 }
 
 fn path_peer_addr(cnx: *mut picoquic_cnx_t, unique_path_id: u64) -> Option<SocketAddr> {
-    let mut storage: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
+    let mut storage: sockaddr_storage = unsafe { std::mem::zeroed() };
     let ret = unsafe { picoquic_get_path_addr(cnx, unique_path_id, 2, &mut storage) };
     if ret != 0 {
         return None;

@@ -3,6 +3,7 @@ use slipstream_dns::{build_qname, encode_query, QueryParams, CLASS_IN, RR_TXT};
 use slipstream_ffi::picoquic::{
     picoquic_cnx_t, picoquic_current_time, picoquic_prepare_packet_ex, slipstream_request_poll,
 };
+use slipstream_ffi::runtime::sockaddr_storage;
 use slipstream_ffi::{ClientConfig, ResolverMode};
 use std::collections::HashMap;
 use tokio::net::UdpSocket as TokioUdpSocket;
@@ -33,7 +34,7 @@ pub(crate) async fn send_poll_queries(
     cnx: *mut picoquic_cnx_t,
     udp: &TokioUdpSocket,
     config: &ClientConfig<'_>,
-    local_addr_storage: &mut libc::sockaddr_storage,
+    local_addr_storage: &mut sockaddr_storage,
     dns_id: &mut u16,
     resolver: &mut ResolverState,
     remaining: &mut usize,
@@ -52,8 +53,8 @@ pub(crate) async fn send_poll_queries(
         }
 
         let mut send_length: libc::size_t = 0;
-        let mut addr_to: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
-        let mut addr_from: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
+        let mut addr_to: sockaddr_storage = unsafe { std::mem::zeroed() };
+        let mut addr_from: sockaddr_storage = unsafe { std::mem::zeroed() };
         let mut if_index: libc::c_int = 0;
         let ret = unsafe {
             picoquic_prepare_packet_ex(

@@ -1,6 +1,25 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+#[cfg(not(windows))]
 use libc::{c_char, c_int, c_uint, c_void, size_t, sockaddr, sockaddr_storage};
+
+#[cfg(windows)]
+use libc::{c_char, c_int, c_uint, c_void, size_t};
+
+#[cfg(windows)]
+use crate::runtime::sockaddr_storage;
+
+// Cross-platform sockaddr type alias
+#[cfg(not(windows))]
+pub type sockaddr = libc::sockaddr;
+
+#[cfg(windows)]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct sockaddr {
+    pub sa_family: u16,
+    pub sa_data: [u8; 14],
+}
 
 pub const PICOQUIC_CONNECTION_ID_MAX_SIZE: usize = 20;
 pub const PICOQUIC_MAX_PACKET_SIZE: usize = 1536;

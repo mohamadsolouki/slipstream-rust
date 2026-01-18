@@ -27,9 +27,10 @@ use slipstream_ffi::{
         picoquic_enable_path_callbacks_default, picoquic_get_next_wake_delay,
         picoquic_prepare_next_packet_ex, picoquic_set_callback, slipstream_has_ready_stream,
         slipstream_is_flow_blocked, slipstream_mixed_cc_algorithm, slipstream_set_cc_override,
-        slipstream_set_default_path_mode, PICOQUIC_CONNECTION_ID_MAX_SIZE,
+        slipstream_set_default_path_mode, sockaddr, PICOQUIC_CONNECTION_ID_MAX_SIZE,
         PICOQUIC_MAX_PACKET_SIZE, PICOQUIC_PACKET_LOOP_RECV_MAX, PICOQUIC_PACKET_LOOP_SEND_MAX,
     },
+    runtime::sockaddr_storage,
     socket_addr_to_storage, ClientConfig, QuicGuard, ResolverMode,
 };
 use std::ffi::CString;
@@ -133,7 +134,7 @@ pub async fn run_client(config: &ClientConfig<'_>) -> Result<i32, ClientError> {
     let cnx = unsafe {
         picoquic_create_client_cnx(
             quic,
-            &mut server_storage as *mut _ as *mut libc::sockaddr,
+            &mut server_storage as *mut _ as *mut sockaddr,
             current_time,
             0,
             sni.as_ptr(),
@@ -285,8 +286,8 @@ pub async fn run_client(config: &ClientConfig<'_>) -> Result<i32, ClientError> {
         for _ in 0..packet_loop_send_max {
             let current_time = unsafe { picoquic_current_time() };
             let mut send_length: libc::size_t = 0;
-            let mut addr_to: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
-            let mut addr_from: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
+            let mut addr_to: sockaddr_storage = unsafe { std::mem::zeroed() };
+            let mut addr_from: sockaddr_storage = unsafe { std::mem::zeroed() };
             let mut if_index: libc::c_int = 0;
             let mut log_cid = picoquic_connection_id_t {
                 id: [0; PICOQUIC_CONNECTION_ID_MAX_SIZE],
