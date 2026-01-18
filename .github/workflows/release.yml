@@ -113,7 +113,9 @@ jobs:
             ${{ runner.os }}-cargo-release-${{ matrix.target }}-
 
       - name: Build picoquic
-        run: bash scripts/build_picoquic.sh
+        run: |
+          chmod +x scripts/build_picoquic.sh
+          bash scripts/build_picoquic.sh
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target }} -p slipstream-client -p slipstream-server
@@ -132,78 +134,11 @@ jobs:
           name: slipstream-macos-${{ matrix.arch }}
           path: slipstream-macos-${{ matrix.arch }}.tar.gz
 
-  build-windows:
-    name: Build Windows x64
-    runs-on: windows-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install dependencies
-        shell: bash
-        run: |
-          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-
-      - name: Install vcpkg and OpenSSL
-        shell: pwsh
-        run: |
-          vcpkg install openssl:x64-windows-static
-          echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" >> $env:GITHUB_ENV
-          echo "OPENSSL_STATIC=1" >> $env:GITHUB_ENV
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-release-x86_64-pc-windows-msvc-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-release-x86_64-pc-windows-msvc-
-
-      - name: Apply Windows patches
-        shell: bash
-        run: |
-          if [ -f scripts/patches/apply_windows_socket_patch.sh ]; then
-            chmod +x scripts/patches/apply_windows_socket_patch.sh
-            bash scripts/patches/apply_windows_socket_patch.sh
-          fi
-
-      - name: Build picoquic
-        shell: bash
-        run: bash scripts/build_picoquic.sh
-
-      - name: Build
-        run: cargo build --release --target x86_64-pc-windows-msvc -p slipstream-client -p slipstream-server
-
-      - name: Package
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist
-          Copy-Item target\x86_64-pc-windows-msvc\release\slipstream-client.exe dist\
-          Copy-Item target\x86_64-pc-windows-msvc\release\slipstream-server.exe dist\
-          Copy-Item README.md, LICENSE dist\
-          Compress-Archive -Path dist\* -DestinationPath slipstream-windows-x64.zip
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: slipstream-windows-x64
-          path: slipstream-windows-x64.zip
-
   release:
     name: Create Release
-    needs: [build-linux, build-macos, build-windows]
+    needs: [build-linux, build-macos]
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - uses: actions/checkout@v4
 
@@ -221,6 +156,9 @@ jobs:
             echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
 
+      - name: List artifacts
+        run: find artifacts -type f || true
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -228,11 +166,11 @@ jobs:
           name: Release ${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
+          fail_on_unmatched_files: false
           files: |
             artifacts/slipstream-linux-x64/slipstream-linux-x64.tar.gz
             artifacts/slipstream-macos-x64/slipstream-macos-x64.tar.gz
             artifacts/slipstream-macos-arm64/slipstream-macos-arm64.tar.gz
-            artifacts/slipstream-windows-x64/slipstream-windows-x64.zip
           body: |
             ## Slipstream ${{ steps.version.outputs.version }}
             
@@ -243,7 +181,6 @@ jobs:
             | Linux | x64 | `slipstream-linux-x64.tar.gz` |
             | macOS | x64 (Intel) | `slipstream-macos-x64.tar.gz` |
             | macOS | ARM64 (Apple Silicon) | `slipstream-macos-arm64.tar.gz` |
-            | Windows | x64 | `slipstream-windows-x64.zip` |
             
             ### Installation
             
@@ -252,8 +189,5 @@ jobs:
             tar -xzf slipstream-<platform>.tar.gz
             sudo mv slipstream-client slipstream-server /usr/local/bin/
             ```
-            
-            **Windows:**
-            Extract the zip and add the folder to your PATH.
             
             See the [README](https://github.com/${{ github.repository }}) for usage instructions.

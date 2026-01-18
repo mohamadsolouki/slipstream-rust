@@ -102,19 +102,17 @@ Download the client for your operating system from [Releases](https://github.com
 
 | Platform | Download |
 |----------|----------|
-| Windows x64 | `slipstream-windows-x64.zip` |
+| Linux x64 | `slipstream-linux-x64.tar.gz` |
 | macOS Intel | `slipstream-macos-x64.tar.gz` |
 | macOS Apple Silicon | `slipstream-macos-arm64.tar.gz` |
-| Linux x64 | `slipstream-linux-x64.tar.gz` |
+
+> **Note**: Windows users can build from source using the PowerShell build script.
 
 **Extract the client:**
 
 ```bash
 # Linux/macOS
 tar -xzf slipstream-*.tar.gz
-
-# Windows
-# Right-click the zip file and select "Extract All"
 ```
 
 ---
