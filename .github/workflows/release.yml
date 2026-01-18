@@ -343,6 +343,9 @@ jobs:
       - name: Build picoquic
         shell: bash
         run: |
+          # Add pkg-config to PATH (installed by chocolatey)
+          export PATH="/c/ProgramData/chocolatey/bin:$PATH"
+          
           # Convert Windows paths to Unix-style for bash
           OPENSSL_ROOT_DIR="${OPENSSL_DIR//\\//}"
           OPENSSL_INCLUDE_DIR="${OPENSSL_INCLUDE_DIR//\\//}"
@@ -359,6 +362,9 @@ jobs:
           echo "  INCLUDE: $OPENSSL_INCLUDE_DIR"
           echo "  CRYPTO: $OPENSSL_CRYPTO_LIBRARY"
           echo "  SSL: $OPENSSL_SSL_LIBRARY"
+          
+          # Verify pkg-config is available
+          echo "pkg-config path: $(which pkg-config)"
           
           chmod +x scripts/build_picoquic.sh
           bash scripts/build_picoquic.sh
