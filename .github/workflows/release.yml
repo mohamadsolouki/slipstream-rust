@@ -58,17 +58,25 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p dist
-          cp target/x86_64-unknown-linux-gnu/release/slipstream-client dist/
-          cp target/x86_64-unknown-linux-gnu/release/slipstream-server dist/
-          cp README.md LICENSE dist/
-          cd dist && tar -czvf ../slipstream-linux-x64.tar.gz *
+          mkdir -p dist-client dist-server
+          cp target/x86_64-unknown-linux-gnu/release/slipstream-client dist-client/
+          cp target/x86_64-unknown-linux-gnu/release/slipstream-server dist-server/
+          cp README.md LICENSE dist-client/
+          cp README.md LICENSE dist-server/
+          cd dist-client && tar -czvf ../slipstream-client-linux-x64.tar.gz *
+          cd ../dist-server && tar -czvf ../slipstream-server-linux-x64.tar.gz *
 
-      - name: Upload artifact
+      - name: Upload client artifact
         uses: actions/upload-artifact@v4
         with:
-          name: slipstream-linux-x64
-          path: slipstream-linux-x64.tar.gz
+          name: slipstream-client-linux-x64
+          path: slipstream-client-linux-x64.tar.gz
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-server-linux-x64
+          path: slipstream-server-linux-x64.tar.gz
 
   build-macos-arm64:
     name: Build macOS (arm64)
@@ -119,17 +127,25 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p dist
-          cp target/aarch64-apple-darwin/release/slipstream-client dist/
-          cp target/aarch64-apple-darwin/release/slipstream-server dist/
-          cp README.md LICENSE dist/
-          cd dist && tar -czvf ../slipstream-macos-arm64.tar.gz *
+          mkdir -p dist-client dist-server
+          cp target/aarch64-apple-darwin/release/slipstream-client dist-client/
+          cp target/aarch64-apple-darwin/release/slipstream-server dist-server/
+          cp README.md LICENSE dist-client/
+          cp README.md LICENSE dist-server/
+          cd dist-client && tar -czvf ../slipstream-client-macos-arm64.tar.gz *
+          cd ../dist-server && tar -czvf ../slipstream-server-macos-arm64.tar.gz *
 
-      - name: Upload artifact
+      - name: Upload client artifact
         uses: actions/upload-artifact@v4
         with:
-          name: slipstream-macos-arm64
-          path: slipstream-macos-arm64.tar.gz
+          name: slipstream-client-macos-arm64
+          path: slipstream-client-macos-arm64.tar.gz
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-server-macos-arm64
+          path: slipstream-server-macos-arm64.tar.gz
 
   build-macos-x64:
     name: Build macOS (x64)
@@ -181,17 +197,25 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p dist
-          cp target/x86_64-apple-darwin/release/slipstream-client dist/
-          cp target/x86_64-apple-darwin/release/slipstream-server dist/
-          cp README.md LICENSE dist/
-          cd dist && tar -czvf ../slipstream-macos-x64.tar.gz *
+          mkdir -p dist-client dist-server
+          cp target/x86_64-apple-darwin/release/slipstream-client dist-client/
+          cp target/x86_64-apple-darwin/release/slipstream-server dist-server/
+          cp README.md LICENSE dist-client/
+          cp README.md LICENSE dist-server/
+          cd dist-client && tar -czvf ../slipstream-client-macos-x64.tar.gz *
+          cd ../dist-server && tar -czvf ../slipstream-server-macos-x64.tar.gz *
 
-      - name: Upload artifact
+      - name: Upload client artifact
         uses: actions/upload-artifact@v4
         with:
-          name: slipstream-macos-x64
-          path: slipstream-macos-x64.tar.gz
+          name: slipstream-client-macos-x64
+          path: slipstream-client-macos-x64.tar.gz
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-server-macos-x64
+          path: slipstream-server-macos-x64.tar.gz
 
   build-windows:
     name: Build Windows x64
@@ -235,6 +259,9 @@ jobs:
         shell: bash
         env:
           OPENSSL_ROOT_DIR: "C:/Program Files/OpenSSL-Win64"
+          OPENSSL_INCLUDE_DIR: "C:/Program Files/OpenSSL-Win64/include"
+          OPENSSL_CRYPTO_LIBRARY: "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MT/libcrypto.lib"
+          OPENSSL_SSL_LIBRARY: "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MT/libssl.lib"
         run: |
           chmod +x scripts/build_picoquic.sh
           bash scripts/build_picoquic.sh
@@ -246,18 +273,28 @@ jobs:
 
       - name: Package
         run: |
-          New-Item -ItemType Directory -Force -Path dist
-          Copy-Item target\x86_64-pc-windows-msvc\release\slipstream-client.exe dist\
-          Copy-Item target\x86_64-pc-windows-msvc\release\slipstream-server.exe dist\
-          Copy-Item README.md dist\
-          Copy-Item LICENSE dist\
-          Compress-Archive -Path dist\* -DestinationPath slipstream-windows-x64.zip
+          New-Item -ItemType Directory -Force -Path dist-client
+          New-Item -ItemType Directory -Force -Path dist-server
+          Copy-Item target\x86_64-pc-windows-msvc\release\slipstream-client.exe dist-client\
+          Copy-Item target\x86_64-pc-windows-msvc\release\slipstream-server.exe dist-server\
+          Copy-Item README.md dist-client\
+          Copy-Item LICENSE dist-client\
+          Copy-Item README.md dist-server\
+          Copy-Item LICENSE dist-server\
+          Compress-Archive -Path dist-client\* -DestinationPath slipstream-client-windows-x64.zip
+          Compress-Archive -Path dist-server\* -DestinationPath slipstream-server-windows-x64.zip
 
-      - name: Upload artifact
+      - name: Upload client artifact
         uses: actions/upload-artifact@v4
         with:
-          name: slipstream-windows-x64
-          path: slipstream-windows-x64.zip
+          name: slipstream-client-windows-x64
+          path: slipstream-client-windows-x64.zip
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-server-windows-x64
+          path: slipstream-server-windows-x64.zip
 
   release:
     name: Create Release
@@ -293,31 +330,50 @@ jobs:
           prerelease: false
           fail_on_unmatched_files: false
           files: |
-            artifacts/slipstream-linux-x64/slipstream-linux-x64.tar.gz
-            artifacts/slipstream-macos-x64/slipstream-macos-x64.tar.gz
-            artifacts/slipstream-macos-arm64/slipstream-macos-arm64.tar.gz
-            artifacts/slipstream-windows-x64/slipstream-windows-x64.zip
+            artifacts/slipstream-client-linux-x64/slipstream-client-linux-x64.tar.gz
+            artifacts/slipstream-server-linux-x64/slipstream-server-linux-x64.tar.gz
+            artifacts/slipstream-client-macos-x64/slipstream-client-macos-x64.tar.gz
+            artifacts/slipstream-server-macos-x64/slipstream-server-macos-x64.tar.gz
+            artifacts/slipstream-client-macos-arm64/slipstream-client-macos-arm64.tar.gz
+            artifacts/slipstream-server-macos-arm64/slipstream-server-macos-arm64.tar.gz
+            artifacts/slipstream-client-windows-x64/slipstream-client-windows-x64.zip
+            artifacts/slipstream-server-windows-x64/slipstream-server-windows-x64.zip
           body: |
             ## Slipstream ${{ steps.version.outputs.version }}
             
             ### Downloads
             
+            #### Client
             | Platform | Architecture | Download |
             |----------|--------------|----------|
-            | Linux | x64 | `slipstream-linux-x64.tar.gz` |
-            | macOS | x64 (Intel) | `slipstream-macos-x64.tar.gz` |
-            | macOS | ARM64 (Apple Silicon) | `slipstream-macos-arm64.tar.gz` |
-            | Windows | x64 | `slipstream-windows-x64.zip` |
+            | Linux | x64 | `slipstream-client-linux-x64.tar.gz` |
+            | macOS | x64 (Intel) | `slipstream-client-macos-x64.tar.gz` |
+            | macOS | ARM64 (Apple Silicon) | `slipstream-client-macos-arm64.tar.gz` |
+            | Windows | x64 | `slipstream-client-windows-x64.zip` |
+            
+            #### Server
+            | Platform | Architecture | Download |
+            |----------|--------------|----------|
+            | Linux | x64 | `slipstream-server-linux-x64.tar.gz` |
+            | macOS | x64 (Intel) | `slipstream-server-macos-x64.tar.gz` |
+            | macOS | ARM64 (Apple Silicon) | `slipstream-server-macos-arm64.tar.gz` |
+            | Windows | x64 | `slipstream-server-windows-x64.zip` |
             
             ### Installation
             
-            **Linux/macOS:**
+            **Linux/macOS Client:**
             ```bash
-            tar -xzf slipstream-<platform>.tar.gz
-            sudo mv slipstream-client slipstream-server /usr/local/bin/
+            tar -xzf slipstream-client-<platform>.tar.gz
+            sudo mv slipstream-client /usr/local/bin/
+            ```
+            
+            **Linux/macOS Server:**
+            ```bash
+            tar -xzf slipstream-server-<platform>.tar.gz
+            sudo mv slipstream-server /usr/local/bin/
             ```
             
             **Windows:**
-            Extract the zip file and add the directory to your PATH.
+            Extract the zip file and add the executable to your PATH.
             
             See the [README](https://github.com/${{ github.repository }}) for usage instructions.
