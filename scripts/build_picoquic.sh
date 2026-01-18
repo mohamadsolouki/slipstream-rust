@@ -23,6 +23,18 @@ CMAKE_ARGS=(
 # Pass OpenSSL paths if set
 if [[ -n "${OPENSSL_ROOT_DIR:-}" ]]; then
   CMAKE_ARGS+=(-DOPENSSL_ROOT_DIR="${OPENSSL_ROOT_DIR}")
+  # On Windows, we need to explicitly set library and include paths
+  if [[ "${OSTYPE:-}" == "msys" || "${OSTYPE:-}" == "cygwin" || -n "${WINDIR:-}" ]]; then
+    CMAKE_ARGS+=(-DOPENSSL_INCLUDE_DIR="${OPENSSL_ROOT_DIR}/include")
+    # Try to find the library directory
+    if [[ -d "${OPENSSL_ROOT_DIR}/lib/VC/x64/MT" ]]; then
+      CMAKE_ARGS+=(-DOPENSSL_CRYPTO_LIBRARY="${OPENSSL_ROOT_DIR}/lib/VC/x64/MT/libcrypto.lib")
+      CMAKE_ARGS+=(-DOPENSSL_SSL_LIBRARY="${OPENSSL_ROOT_DIR}/lib/VC/x64/MT/libssl.lib")
+    elif [[ -d "${OPENSSL_ROOT_DIR}/lib" ]]; then
+      CMAKE_ARGS+=(-DOPENSSL_CRYPTO_LIBRARY="${OPENSSL_ROOT_DIR}/lib/libcrypto.lib")
+      CMAKE_ARGS+=(-DOPENSSL_SSL_LIBRARY="${OPENSSL_ROOT_DIR}/lib/libssl.lib")
+    fi
+  fi
 fi
 
 cmake -S "${PICOQUIC_DIR}" -B "${BUILD_DIR}" "${CMAKE_ARGS[@]}"
